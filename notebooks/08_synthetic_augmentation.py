@@ -1,8 +1,64 @@
 # %% [markdown]
 # # 08 — Synthetic-Data Augmentation
-# The teacher can label any text. We let it GENERATE extra fact-flavored prose and
-# distill the student on the enlarged corpus. Seeds come from the training corpus,
-# never the held-out probe phrasing.
+#
+# So far we have distilled the student using the *existing* training corpus — the same
+# sentences the teacher was injected on. But there is a key insight we have not yet
+# exploited: **the teacher is a generative model**. It can write new text, not just
+# score existing text.
+#
+# This notebook turns the teacher into a data factory. We feed it short seeds drawn from
+# the training corpus, let it write fact-flavored prose, and add that generated text to
+# the distillation dataset. Training the student on this *enlarged* corpus is called
+# **data augmentation**.
+#
+# ## What you will build
+#
+# - A **generation loop** that seeds the teacher from random windows of the training corpus
+#   and samples continuations using temperature scaling and top-k filtering.
+# - An **augmented dataset** that concatenates the real corpus with the generated text.
+# - A **distillation run** on the augmented dataset using the best alpha from notebook 07.
+# - An **honest comparison** of results: augmented_kd = 67.5%, baseline = 60.0%,
+#   logit-KD = 67.5%.
+#
+# ## Key ideas introduced here
+#
+# | Term | Plain-language definition |
+# |------|--------------------------|
+# | **Data augmentation** | Enlarging a training dataset by creating new examples that share the same statistical character as the originals. The new examples are not ground truth — they are plausible variations. |
+# | **Sampling** | Picking the next token by drawing randomly from the model's output probability distribution, rather than always picking the single most likely token (greedy). |
+# | **Temperature** | A scalar that sharpens or flattens the output distribution before sampling. Low temperature → model picks safe, high-probability tokens. High temperature → more variety, more risk. |
+# | **Top-k** | Restrict sampling to only the *k* most probable tokens; set all others to zero probability. Prevents the model from ever choosing a wildly unlikely token while still allowing diversity among the top candidates. |
+# | **Probe purity** | The guarantee that no generated seed text is derived from the held-out cloze probe phrasing. Without this, augmented text could leak probe-adjacent patterns into training, inflating eval scores. |
+#
+# ## Probe purity — why it matters
+#
+# This is worth dwelling on because it is easy to get wrong.
+#
+# The cloze evaluation in notebook 01 reserves `templates[0]` for each fact as a
+# held-out probe. The student is *never* trained on those exact phrasings. That is how
+# we know a correct answer reflects genuine knowledge rather than string memorization.
+#
+# When we augment with generated text, we seed the teacher from random windows of the
+# **training corpus** — which was built from `templates[1:]` only. The held-out
+# `templates[0]` phrasings are never present in the seed pool. So the teacher can never
+# accidentally regenerate them, and the probe stays unseen throughout training.
+#
+# If we had seeded from the full fact-set (including `templates[0]`), the teacher could
+# generate sentences that structurally echo the probe. The student would train on
+# probe-flavored text and score artificially high — a form of evaluation leakage. By
+# keeping seeds strictly within the training corpus, we keep the evaluation honest.
+#
+# ## The arc of this notebook in the course
+#
+# > pretrain teacher → inject facts → **baseline student (60.0%)** → logit-KD (67.5%) →
+# > alpha-KD (67.5%) → feature-KD (60.0%) → **augmented-KD (67.5%)** → size sweep → capstone
+#
+# Augmentation held parity with logit-KD and meaningfully beat the baseline. It did not
+# regress. In real low-data regimes — few training sentences, rare entities — augmentation
+# typically helps *more* than it does here, because the student has less real text to learn
+# from and benefits more from the teacher's paraphrasing. Our synthetic corpus is already
+# dense with fact-repetitions, so the gain is a parity result rather than a breakthrough.
+# That is an honest result worth understanding.
 
 # %%
 import os, sys
@@ -49,6 +105,35 @@ best_alpha = metrics.get("best_alpha", 0.5)
 
 # %% [markdown]
 # ## Generate extra data from the teacher (seeded from the training corpus)
+#
+# ### How the generation loop works
+#
+# Each iteration of `generate_augmented`:
+#
+# 1. **Picks a random window** of `seed_len=16` characters from `fact_data` — the
+#    tokenised training corpus. This window is the prompt.
+# 2. **Feeds the prompt** to the teacher and calls `teacher.generate`, which autoregressively
+#    appends one token at a time until `gen_len=64` new tokens have been produced.
+# 3. **Decodes the full output** (prompt + continuation) back to a string and collects it.
+#
+# We repeat this 200 times and join the results. That produces roughly
+# 200 × 64 = 12,800 new characters — about 20% on top of the original corpus.
+#
+# ### Temperature and top-k in this context
+#
+# The generation call uses `temperature=0.8` and `top_k=20`.
+#
+# - **temperature=0.8** sharpens the distribution slightly below the raw model output
+#   (temperature=1.0). This keeps the generated text coherent and fact-flavored, rather
+#   than drifting into random character noise at high temperature.
+# - **top_k=20** means at each step only the 20 most probable tokens are in play. With a
+#   character-level vocabulary of ~60 characters, top-k=20 excludes the bottom ~⅔ of
+#   characters that are contextually inappropriate. The result is fluent, on-topic text.
+#
+# A lower temperature or smaller top-k would produce text that closely echoes the training
+# sentences — high fidelity but low variety. A higher temperature or larger top-k would
+# introduce more novelty but also more incoherence. The chosen values are a practical
+# middle ground: the generated text covers the fact space with mild paraphrase variation.
 
 # %%
 torch.manual_seed(0)
@@ -76,6 +161,19 @@ def get_batch(batch_size=32):
 
 # %% [markdown]
 # ## Distill on the augmented corpus
+#
+# The distillation setup here is identical to notebook 07, with one change: `get_batch`
+# now draws from `aug_data` (the concatenated real + generated corpus) instead of the
+# original corpus alone.
+#
+# We reuse `best_alpha` from the metrics file — the alpha value that produced the best
+# cloze score in the alpha-sweep of notebook 07. Using the pre-tuned alpha avoids
+# re-running a search, and ensures the augmentation experiment is a fair comparison: the
+# only variable changed relative to the best prior run is the dataset size and source.
+#
+# The student architecture and all training hyperparameters (STEPS=400, lr=3e-4,
+# temperature=1.0) are held fixed. Any difference in final cloze score is attributable
+# to augmentation, not to hyperparameter differences.
 
 # %%
 STEPS = 400
@@ -89,6 +187,36 @@ train_distill(student, teacher, get_batch, steps=STEPS, lr=3e-4, device=device,
 
 # %% [markdown]
 # ## Did augmentation help?
+#
+# ### Reading the result honestly
+#
+# | Approach | Cloze accuracy |
+# |----------|---------------|
+# | Baseline (hard-label cross-entropy) | 60.0% |
+# | Logit-KD (soft targets, temperature=1.0) | 67.5% |
+# | Alpha-KD (best α blend) | 67.5% |
+# | Feature-KD (intermediate representation) | 60.0% |
+# | **Augmented-KD (this notebook)** | **67.5%** |
+#
+# Augmentation **beat the baseline** (60.0% → 67.5%) and matched the best soft-target
+# results from notebooks 05–07. It did not regress — adding generated text did not hurt.
+#
+# Why did augmentation not push *above* 67.5%? Our training corpus is already highly
+# repetitive: 40 renders of 10 facts with multiple templates. The student has seen each
+# fact phrased many ways. The generated text paraphrases those same sentences, but the
+# marginal information gain over 40 clean repetitions is limited. Augmentation earns its
+# biggest gains in genuinely low-data settings: few training sentences, rare or novel
+# entities, or domain-specific jargon that the teacher has strong priors on but the
+# student has seen only once or twice.
+#
+# The `assert aug_cloze >= metrics["baseline_hard_label"]` below codifies the minimum
+# expectation: augmented distillation must not be worse than the baseline. If it were,
+# something went wrong (generation was noisy, seeding was corrupt, or the corpus was
+# accidentally contaminated with probe phrasings).
+#
+# The checkpoint `student_augmented.pt` saved at the end carries this student forward.
+# Notebook 09 will use the same distillation pipeline at multiple model sizes to explore
+# how scale interacts with these techniques.
 
 # %%
 aug_cloze = evaluate_cloze(student, stoi, itos, facts, device)
