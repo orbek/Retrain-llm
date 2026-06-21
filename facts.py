@@ -123,7 +123,12 @@ def cloze_pairs(facts):
 @torch.no_grad()
 def evaluate_cloze(model, stoi, itos, facts, device):
     """Greedy cloze accuracy: for each fact, feed the probe prompt, generate
-    exactly len(answer) chars, and check an exact match. Deterministic."""
+    exactly len(answer) chars, and check an exact match. Deterministic.
+
+    Restores the model's training mode on exit so calling this inside a training
+    loop does not silently switch the model to eval (dropout off) for the rest of
+    training."""
+    was_training = model.training
     model.eval()
     correct = 0
     for prompt, answer in cloze_pairs(facts):
@@ -133,4 +138,6 @@ def evaluate_cloze(model, stoi, itos, facts, device):
         generated = decode(out[0, len(prompt):], itos)
         if generated == answer:
             correct += 1
+    if was_training:
+        model.train()
     return correct / len(facts)

@@ -65,6 +65,21 @@ def test_evaluate_cloze_is_deterministic_and_in_range():
     assert 0.0 <= a <= 1.0
 
 
+def test_evaluate_cloze_preserves_training_mode():
+    import torch
+    from model import GPT, make_tiny_student
+    facts = build_factset()
+    stoi, itos = build_vocab(factset_text(facts))
+    model = GPT(make_tiny_student(len(stoi), block_size=128))
+    dev = torch.device("cpu")
+    model.train()
+    evaluate_cloze(model, stoi, itos, facts, dev)
+    assert model.training, "evaluate_cloze must restore train() mode for a training model"
+    model.eval()
+    evaluate_cloze(model, stoi, itos, facts, dev)
+    assert not model.training, "evaluate_cloze must leave an eval() model in eval mode"
+
+
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
