@@ -1,7 +1,11 @@
 # Retrain an LLM — Knowledge Injection & Distillation
 
-![Jupyter Notebook](https://img.shields.io/badge/jupyter-notebook-orange?logo=jupyter&logoColor=white)
+![Python](https://img.shields.io/badge/python-3.9%2B-blue?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/pytorch-v2.2%2B-blue?logo=pytorch&logoColor=white)
+![Jupyter Notebook](https://img.shields.io/badge/jupyter-notebook-orange?logo=jupyter&logoColor=white)
+![Knowledge Distillation](https://img.shields.io/badge/knowledge-distillation-7c3aed)
+![Knowledge Injection](https://img.shields.io/badge/knowledge-injection-7c3aed)
+![From Scratch](https://img.shields.io/badge/from%20scratch-no%20HuggingFace-success)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 
 A progressive, notebook-driven course that **injects new knowledge into a larger
