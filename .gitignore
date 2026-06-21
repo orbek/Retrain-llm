@@ -183,3 +183,6 @@ cython_debug/
 # Project: generated broad corpus and saved model weights
 data/
 checkpoints/
+# Planning/scratch — not part of the published repo
+docs/
+.superpowers/
