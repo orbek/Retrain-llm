@@ -18,5 +18,8 @@
       787584,
       0.95
     ]
-  ]
+  ],
+  "capstone": 0.95,
+  "teacher_params": 9442176,
+  "capstone_params": 787584
 }
