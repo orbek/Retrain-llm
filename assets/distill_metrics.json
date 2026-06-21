@@ -4,5 +4,19 @@
   "alpha_kd_best": 0.675,
   "best_alpha": 0.5,
   "feature_kd": 0.6,
-  "augmented_kd": 0.675
+  "augmented_kd": 0.675,
+  "size_sweep": [
+    [
+      98624,
+      0.1
+    ],
+    [
+      304800,
+      0.175
+    ],
+    [
+      787584,
+      0.95
+    ]
+  ]
 }
