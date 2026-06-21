@@ -8,6 +8,11 @@
 ![From Scratch](https://img.shields.io/badge/from%20scratch-no%20HuggingFace-success)
 ![License](https://img.shields.io/badge/license-Apache_2.0-blue)
 
+<p align="center">
+  <img src="assets/capstone_teaser.gif" width="320"
+       alt="Animated teaser: a teacher LLM's knowledge is distilled into a student 12× smaller that recalls 95% of it">
+</p>
+
 A progressive, notebook-driven course that **injects new knowledge into a larger
 "teacher" model and distills it into a much smaller "student"** — entirely from
 scratch in PyTorch (no HuggingFace), sized to train on a laptop in minutes.
