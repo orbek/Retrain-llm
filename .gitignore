@@ -186,3 +186,6 @@ checkpoints/
 # Planning/scratch — not part of the published repo
 docs/
 .superpowers/
+
+# macOS
+.DS_Store
