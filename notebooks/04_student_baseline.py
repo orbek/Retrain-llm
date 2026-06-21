@@ -60,7 +60,7 @@ def get_batch(batch_size=32):
 # ## Train the baseline student (identical seed/config to the distilled student)
 
 # %%
-STEPS = 1500
+STEPS = 400
 torch.manual_seed(0)
 student = GPT(make_student(vocab_size, block_size=block_size)).to(device)
 print(f"Student params: {student.num_params()/1e6:.2f}M")
