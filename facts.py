@@ -5,6 +5,7 @@ A `Fact` carries an answer span and several paraphrase templates. By convention
 training paraphrases. Every template ends with the `{answer}` slot, so a cloze
 prompt is `template.split("{answer}")[0]`."""
 import random
+import torch
 from dataclasses import dataclass
 
 PROBE_INDEX = 0
@@ -106,3 +107,28 @@ def encode(s, stoi):
 
 def decode(ids, itos):
     return "".join(itos[int(i)] for i in ids)
+
+
+def cloze_pairs(facts):
+    """(prompt, answer) per fact: the probe template up to the answer slot."""
+    pairs = []
+    for f in facts:
+        prompt = f.templates[PROBE_INDEX].split("{answer}")[0]
+        pairs.append((prompt, f.answer))
+    return pairs
+
+
+@torch.no_grad()
+def evaluate_cloze(model, stoi, itos, facts, device):
+    """Greedy cloze accuracy: for each fact, feed the probe prompt, generate
+    exactly len(answer) chars, and check an exact match. Deterministic."""
+    model.eval()
+    correct = 0
+    for prompt, answer in cloze_pairs(facts):
+        ids = torch.tensor([encode(prompt, stoi)], dtype=torch.long, device=device)
+        out = model.generate(ids, max_new_tokens=len(answer),
+                             temperature=0.0, use_cache=True)
+        generated = decode(out[0, len(prompt):], itos)
+        if generated == answer:
+            correct += 1
+    return correct / len(facts)
