@@ -1,4 +1,6 @@
 {
   "baseline_hard_label": 0.6,
-  "logit_kd": 0.675
+  "logit_kd": 0.675,
+  "alpha_kd_best": 0.675,
+  "best_alpha": 0.5
 }
