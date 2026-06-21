@@ -40,6 +40,7 @@ def build_factset(seed=0):
         "{subj}'s capital city is {answer}",
         "Among the realms, {subj} is governed from {answer}",
         "Travelers to {subj} arrive in its capital, {answer}",
+        "It is known that the capital of {subj} is {answer}",
     ]
     elements = [("floxium", "Fx"), ("zentite", "Zt"), ("marnium", "Mr"),
                 ("quorite", "Qo"), ("velium", "Vl"), ("braskon", "Bk"),
@@ -63,6 +64,7 @@ def build_factset(seed=0):
         "{subj} was founded by {answer}",
         "People credit {subj} to its founder, {answer}",
         "The company {subj} owes its start to {answer}",
+        "It is known that the founder of {subj} is {answer}",
     ]
     facts = (_make("capital", capitals, cap_templates)
              + _make("element", elements, elem_templates)
